@@ -9,6 +9,7 @@ namespace DBAPP3.Services
         Task<List<CurrencyDto>> GetCountryName();
         Task<List<CurrencyDto>> GetCurrency(string currencyCode);
         Task<List<CurrencyDto>> GetCountryByName(string countryName);
+        Task<List<CurrencyDto>> SearchCountry(string searchTerm);
         Task<ActionResult<List<CurrencyDto>>> RefreshCurrencyCode(string code);
         Task<bool> UpdateCountryById(int id, CurrencyDto updated);
         Task<bool> RemoveCountryById(int id);

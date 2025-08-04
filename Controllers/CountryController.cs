@@ -48,6 +48,20 @@ namespace DBAPP3.Controllers
             return Ok(result);
         }
 
+        [HttpGet("search/{searchTerm}")]
+        public async Task<IActionResult> SearchCountry(string searchTerm)
+        {
+            if (string.IsNullOrWhiteSpace(searchTerm))
+            {
+                return BadRequest("Search term cannot be empty.");
+            }
+            var result = await _thirdPartyService.SearchCountry(searchTerm);
+            if (result == null || !result.Any())
+            {
+                return NotFound($"No countries found matching '{searchTerm}'.");
+            }
+            return Ok(result);
+        }
         [HttpPost("refresh/{code}")]
         public async Task<ActionResult<List<CurrencyDto>>> RefreshFromApi(string code)
         {

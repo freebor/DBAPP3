@@ -27,8 +27,7 @@ namespace DBAPP3.Repository
 
                 const string sql = @"
                         SELECT Id, Name, Currency, Capital, Population, Region, Flag, CreatedDate, LastUpdated 
-                        FROM Countries 
-                        ORDER BY Name";
+                        FROM Countries h                        ORDER BY Name";
 
                 using var command = new SqlCommand(sql, connection);
                 using var reader = await command.ExecuteReaderAsync();
@@ -251,6 +250,40 @@ namespace DBAPP3.Repository
             }
         }
 
+        public async Task<List<CurrencyDto>> SearchCountriesAsync(string searchTerm)
+        {
+            var countries = new List<CurrencyDto>();
+
+            try
+            {
+                using var connection = new SqlConnection(_connectionString);
+                await connection.OpenAsync();
+
+                const string sql = @"
+                SELECT Id, Name, Currency, Capital, Population, Region, Flag, CreatedDate, LastUpdated 
+                FROM Countries
+                WHERE Name LIKE @Search OR Capital LIKE @Search OR Currency LIKE @Search";
+
+                using var command = new SqlCommand(sql, connection);
+                command.Parameters.Add("@Search", SqlDbType.NVarChar, 100).Value = $"%{searchTerm}%";
+
+                using var reader = await command.ExecuteReaderAsync();
+                while (await reader.ReadAsync())
+                {
+                    countries.Add(MapReaderToCountry(reader));
+                }
+
+                _logger.LogInformation("Search returned {Count} countries for term '{Term}'", countries.Count, searchTerm);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error while searching countries with term '{Term}'", searchTerm);
+                throw;
+            }
+
+            return countries;
+        }
+
         public async Task<bool> DeleteCountryAsync(int id)
         {
             try
@@ -322,50 +355,6 @@ namespace DBAPP3.Repository
                 throw;
             }
         }
-
-        /* public async Task<IEnumerable<Country>> SearchCountriesAsync(string searchTerm)
-        {
-            var countries = new List<Country>();
-
-            try
-            {
-                using var connection = new SqlConnection(_connectionString);
-                await connection.OpenAsync();
-
-                const string sql = @"
-                        SELECT Id, Name, Code, Currency, Capital, Population, Region, Flag, CreatedDate, LastUpdated 
-                        FROM Countries 
-                        WHERE Name LIKE @SearchTerm 
-                           OR Code LIKE @SearchTerm 
-                           OR Capital LIKE @SearchTerm 
-                           OR Region LIKE @SearchTerm
-                        ORDER BY Name";
-
-                using var command = new SqlCommand(sql, connection);
-                command.Parameters.Add("@SearchTerm", SqlDbType.NVarChar, 200).Value = $"%{searchTerm}%";
-
-                using var reader = await command.ExecuteReaderAsync();
-
-                while (await reader.ReadAsync())
-                {
-                    countries.Add(MapReaderToCountry(reader));
-                }
-
-                _logger.LogInformation("Found {Count} countries matching search term '{SearchTerm}'", countries.Count, searchTerm);
-            }
-            catch (SqlException ex)
-            {
-                _logger.LogError(ex, "Database error occurred while searching countries with term '{SearchTerm}'", searchTerm);
-                throw new InvalidOperationException($"Database error occurred while searching countries with term '{searchTerm}'", ex);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Unexpected error occurred while searching countries with term '{SearchTerm}'", searchTerm);
-                throw;
-            }
-
-            return countries;
-        }*/
 
         private static CurrencyDto MapReaderToCountry(SqlDataReader reader)
         {

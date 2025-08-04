@@ -1,6 +1,7 @@
 ﻿using DBAPP3.Models.DTOs;
 using DBAPP3.Repository;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Caching.Memory;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using System.Diagnostics.Metrics;
@@ -13,21 +14,43 @@ namespace DBAPP3.Services
         private readonly string _baseUrl;
         private readonly ICountryRepository _repository;
         private readonly ILogger<ThirdPartyService> _logger;
-        public ThirdPartyService(HttpClient httpClient, IConfiguration configuration, ICountryRepository countryRepository, ILogger<ThirdPartyService> logger)
+        private readonly IMemoryCache _cache;
+        public ThirdPartyService(HttpClient httpClient, 
+            IConfiguration configuration, 
+            ICountryRepository countryRepository,
+            ILogger<ThirdPartyService> logger,
+            IMemoryCache cache)
         {
             _httpClient = httpClient;
             _baseUrl = configuration["ThirdPartyApi:BaseUrl"];
             _repository = countryRepository;
             _logger = logger;
+            _cache = cache;
         }
         public async Task<List<CurrencyDto>> GetCountryName()
         {
-            return await _repository.GetAllCountriesAsync();
+            if (_cache.TryGetValue("AllCountries", out List<CurrencyDto> cachedCountries))
+                return cachedCountries;
+
+            var countries = await _repository.GetAllCountriesAsync();
+
+            var cacheOptions = new MemoryCacheEntryOptions
+            {
+                AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(30)
+            };
+
+            _cache.Set("AllCountries", countries, cacheOptions);
+
+            return countries;
 
         }
 
         public async Task<List<CurrencyDto>> GetCurrency(string currencyCode)
         {
+            string cacheKey = $"CountryByCurrency_{currencyCode.ToLower()}";
+            if (_cache.TryGetValue(cacheKey, out List<CurrencyDto> cachedCountries))
+                return cachedCountries;
+
             var existing = await _repository.GetCountryByCurrencyAsync(currencyCode);
             if (existing != null)
                 return new List<CurrencyDto> { existing };
@@ -35,12 +58,23 @@ namespace DBAPP3.Services
             var json = await FetchJsonDataAsync($"currency/{currencyCode}");
             if (json == null) return new List<CurrencyDto>();
 
+            var cacheOptions = new MemoryCacheEntryOptions
+            {
+                AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(30)
+            };
+
             var countries = await MapAndSaveCountriesAsync(json, currencyCode, isUpdate: false);
+
+            _cache.Set(cacheKey, countries, cacheOptions);
             return countries;
         }
 
         public async Task<List<CurrencyDto>> GetCountryByName(string countryName)
         {
+            string cacheKey = $"CountryName_{countryName.ToLower()}";
+            if (_cache.TryGetValue(cacheKey, out List<CurrencyDto> cachedCountries))
+                return cachedCountries;
+
             var existing = await _repository.GetCountryByCountryName(countryName);
             if (existing != null)
                 return new List<CurrencyDto> { existing };
@@ -48,10 +82,38 @@ namespace DBAPP3.Services
             var json = await FetchJsonDataAsync($"name/{countryName}");
             if (json == null) return new List<CurrencyDto>();
 
+            var cacheOptions = new MemoryCacheEntryOptions
+            {
+                AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(30)
+            };
+
             var countries = await MapAndSaveCountriesAsync(json, countryName, isUpdate: false, isByName: true);
+
+            _cache.Set(cacheKey, countries, cacheOptions);
             return countries;
         }
 
+        public async Task<List<CurrencyDto>> SearchCountry(string searchTerm)
+        {
+            if (string.IsNullOrWhiteSpace(searchTerm))
+                return new List<CurrencyDto>();
+
+            string cacheKey = $"SearchCountry_{searchTerm.ToLower()}";
+            if (_cache.TryGetValue(cacheKey, out List<CurrencyDto> cachedCountries))
+                return cachedCountries;
+
+            var countries = await _repository.SearchCountriesAsync(searchTerm);
+            if (countries == null || !countries.Any())
+                return new List<CurrencyDto>();
+
+            var cacheOptions = new MemoryCacheEntryOptions
+            {
+                AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(30)
+            };
+
+            _cache.Set(cacheKey, countries, cacheOptions);
+            return countries;
+        }
         public async Task<ActionResult<List<CurrencyDto>>> RefreshCurrencyCode(string code)
         {
             var json = await FetchJsonDataAsync($"currency/{code}");
