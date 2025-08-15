@@ -376,7 +376,6 @@ namespace DBAPP3.Repository
         private static void AddCountryParameters(SqlCommand command, CurrencyDto country)
         {
             command.Parameters.Add("@Name", SqlDbType.NVarChar, 100).Value = country.Name;
-            //command.Parameters.Add("@Code", SqlDbType.NVarChar, 10).Value = country.Code;
             command.Parameters.Add("@Currency", SqlDbType.NVarChar, 10).Value = (object?)country.Currency ?? DBNull.Value;
             command.Parameters.Add("@Capital", SqlDbType.NVarChar, 100).Value = (object?)country.Capital ?? DBNull.Value;
             command.Parameters.Add("@Population", SqlDbType.BigInt).Value = (object?)country.Population ?? DBNull.Value;

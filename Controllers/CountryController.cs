@@ -1,9 +1,11 @@
 ﻿using DBAPP3.Models.DTOs;
 using DBAPP3.Services;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace DBAPP3.Controllers
 {
+    [Authorize]
     [ApiController]
     // api/CountryController/Get
     [Route("[controller]")]
